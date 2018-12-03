@@ -1,0 +1,36 @@
+<html>
+    <head>
+        {% if title %}
+            <title>{{title}} - Myblog</title>
+        {% else %}
+            <title>Welcome to Myblog!</title>
+        {% endif %}
+    </head>
+    <body>
+        <div>
+            Myblog:
+            <!-- Rather than using explicit URLs which may be difficult to
+                 update later on, use url_for and the view function which
+                 handles the URL. -->
+            <a href="{{url_for('index')}}">Home</a>
+            <a href="{{url_for('explore')}}">Explore</a>
+            {% if current_user.is_anonymous %}
+                <a href="{{url_for('login')}}">Login</a>
+            {% else %}
+                <a href="{{url_for('user', username=current_user.username)}}">Profile</a>
+                <a href="{{url_for('logout')}}">Logout</a>
+            {% endif %}
+        </div>
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <ul>
+                    {% for message in messages %}
+                        <li>{{message}}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </body>
+</html>
+

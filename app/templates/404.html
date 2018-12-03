@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+
+{# {% block content %} - change to leverage bootstrap #}
+{% block app_content %}
+    <h1>{{ _("Sorry - I can't find anything there!") }}</h1>
+    <p><a href="{{url_for('index')}}">{{ _('Back') }}</a></p>
+{% endblock %}
+
