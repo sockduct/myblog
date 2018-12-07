@@ -3,14 +3,36 @@
 from datetime import datetime, timedelta
 # Use stdlib unit test module
 import unittest
-from app import app, db
+from app import create_app, db
 from app.models import User, Post
+from config import Config
+
+
+# Subclass Config class to allow overriding any options during testing
+class TestConfig(Config):
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite://'
+    # Don't have to have Elasticsearch server when running tests
+    ELASTICSEARCH_URL = None
 
 
 class UserModelCase(unittest.TestCase):
     def setUp(self):
         # Use temporary in-memory database, not real one
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
+        # app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
+        # Use TestConfig for testing configuration - much better way to
+        # setup testing because each test gets pristine config!  Also, one
+        # test can't muck with another test.
+        self.app = create_app(TestConfig)
+        # Because we're using app factor and two stage extension
+        # initialization, it allows extension instances to handle more than
+        # one app instance so we need to pass an app_context so instance knows
+        # what to deal with, so create app context:
+        self.app_context = self.app.app_context()
+        # Install app context permanently:
+        self.app_context.push()
+        # Without an app context this fails - needs to be able to find app
+        # instance
         # Create all tables
         db.create_all()
 
@@ -19,6 +41,8 @@ class UserModelCase(unittest.TestCase):
         db.session.remove()
         # Delete all tables in database
         db.drop_all()
+        # Delete app context:
+        self.app_context.pop()
 
     def test_password_hashing(self):
         u = User(username='susan')

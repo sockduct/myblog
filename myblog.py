@@ -1,8 +1,11 @@
 # This defines the Flask application instance:
 # From the app package, import the app variable instance (defined in
 # __init__.py)
-from app import app, db, cli
+from app import create_app, db, cli
 from app.models import User, Post
+
+app = create_app()
+cli.register(app)
 
 # Define symbols to include in flask Python REPL session:
 # flask shell

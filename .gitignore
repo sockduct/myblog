@@ -29,6 +29,7 @@ wheels/
 MANIFEST
 
 # Flask
+.env
 .flaskenv
 
 # PyInstaller

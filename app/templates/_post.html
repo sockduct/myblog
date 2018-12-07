@@ -2,7 +2,7 @@
 <table class="table table-hover">
     <tr>
         <td width="70px">
-            <a href="{{ url_for('user', username=post.author.username) }}">
+            <a href="{{ url_for('main.user', username=post.author.username) }}">
                 <img src="{{ post.author.avatar(70) }}" />
             </a>
         </td>
@@ -15,7 +15,7 @@
             {# Encapsulate dynamic username wrapped in HTML to make it a hyperlink into user_link
                variable using set block from Jinja #}
             {% set user_link %}
-                <a href="{{ url_for('user', username=post.author.username) }}">
+                <a href="{{ url_for('main.user', username=post.author.username) }}">
                     {{ post.author.username }}
                 </a>
             {% endset %}

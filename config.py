@@ -1,7 +1,10 @@
+from dotenv import load_dotenv
 import os
 
 # __file__ is the full pathname of this module
 basedir = os.path.abspath(os.path.dirname(__file__))
+# Load environment variables from this file
+load_dotenv(os.path.join(basedir, '.env'))
 
 class Config(object):
     # Probably better to use something like Vault to store/generate secret key
@@ -29,6 +32,7 @@ class Config(object):
     #
     # API Key for Azure Translation Service
     MS_TRANSLATOR_KEY = os.environ.get('MS_TRANSLATOR_KEY')
+    ELASTICSEARCH_URL = os.environ.get('ELASTICSEARCH_URL')
     #
     # How many posts to display per page:
     POSTS_PER_PAGE = 5
