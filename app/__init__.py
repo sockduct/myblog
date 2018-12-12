@@ -98,19 +98,27 @@ def create_app(config_class=Config):
             # occur)
             app.logger.addHandler(mail_handler)
 
-        # Also log stack traces to a file
-        # Create logs directory if doesn't exist
-        if not os.path.exists('logs'):
-            os.mkdir('logs')
-        # Log up to 10k/file then rotate, keep 10
-        file_handler = RotatingFileHandler('logs/myblog.log', maxBytes=10240, backupCount=10)
-        # What to output to file
-        file_handler.setFormatter(logging.Formatter(
-            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'))
-        # Log at level info and above
-        file_handler.setLevel(logging.INFO)
-        # Add file as target for logging
-        app.logger.addHandler(file_handler)
+        # If this variable is set, we need to log to stdout instead of a log
+        # file
+        if app.config['LOG_TO_STDOUT']:
+            stream_handler = logging.StreamHandler()
+            stream_handler.setLevel(logging.INFO)
+            app.logger.addHandler(stream_handler)
+        # Otherwise, log to a log file
+        else:
+            # Also log stack traces to a file
+            # Create logs directory if doesn't exist
+            if not os.path.exists('logs'):
+                os.mkdir('logs')
+            # Log up to 10k/file then rotate, keep 10
+            file_handler = RotatingFileHandler('logs/myblog.log', maxBytes=10240, backupCount=10)
+            # What to output to file
+            file_handler.setFormatter(logging.Formatter(
+                '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'))
+            # Log at level info and above
+            file_handler.setLevel(logging.INFO)
+            # Add file as target for logging
+            app.logger.addHandler(file_handler)
 
         # Change app logging level to info
         app.logger.setLevel(logging.INFO)

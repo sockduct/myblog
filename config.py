@@ -19,6 +19,11 @@ class Config(object):
     # We don't need and must be set to avoid be prompted/nagged
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     #
+    # Log to stdout or log file?
+    # Needed for Heroku where you can't rely on a persistent file system for
+    # log files:
+    LOG_TO_STDOUT = os.environ.get('LOG_TO_STDOUT')
+    #
     # Email config - also usable by flask-mail:
     MAIL_SERVER = os.environ.get('MAIL_SERVER')
     MAIL_PORT = int(os.environ.get('MAIL_PORT') or 25)
