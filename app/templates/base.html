@@ -37,6 +37,17 @@
                     {% if current_user.is_anonymous %}
                         <li><a href="{{ url_for('auth.login') }}">{{ _('Login') }}</a></li>
                     {% else %}
+						<li>
+							<a href="{{ url_for('main.messages') }}">{{ _('Messages') }}
+								{% set new_messages = current_user.new_messages() %}
+								<span id="message_count" class="badge"
+									  {# Only use style if at least 1 unread message: #}
+									  style="visibility: {% if new_messages %}visible
+														 {% else %}hidden{% endif %};">
+									{{ new_messages }}
+								</span>
+							</a>
+						</li>
                         <li><a href="{{ url_for('main.user', username=current_user.username) }}">{{ _('Profile') }}</a></li>
                         <li><a href="{{ url_for('auth.logout') }}">{{ _('Logout') }}</a></li>
                     {% endif %}
@@ -89,6 +100,93 @@
                 $(destElem).text("{{ _('Error: Could not contact server.') }}");
             });
         }
+		{# Use jQuery $ function to load this function after page loads #}
+        $(function () {
+            // define these outside of mouse_in/mouse_out functions so that both have access to them
+            var timer = null;
+            var xhr = null;
+            // use jQuery selector - when hover over elements tagged with user_popup class
+            // activate this function
+            $('.user_popup').hover(
+                function(event) {
+                    // mouse in event handler
+                    var elem = $(event.currentTarget);
+                    // use setTimeout function
+                    // * wait for 1000 ms then fire AJAX request
+                    timer = setTimeout(function() {
+                        timer = null;
+                        xhr = $.ajax(
+                            // build URL from element we're hovering over
+                            // take its first child's text component and remove any whitespace
+                            // to get the correct username
+                            '/user/' + elem.first().text().trim() + '/popup').done(
+                                // use promise functionality to call this function upon AJAX
+                                // request completion - response result is put into data argument
+                                function(data) {
+                                    xhr = null;
+                                    // Create bootstrap popover in manual mode
+                                    elem.popover({
+                                        trigger: 'manual',
+                                        // Use HTML - the Python view function we called returns HTML
+                                        html: true,
+                                        // Instructor didn't care for this so he disabled
+                                        animation: false,
+                                        // Use the span element as the container so staying within the
+                                        // popover doesn't cause it to close
+                                        container: elem,
+                                        // Use the content we got back from the view function
+                                        content: data
+                                    }).popover('show');
+                                    // Since we invoked popover in manual mode, have to invoke show to display it
+                                    // Popover contents include a moment date which requires this function to
+                                    // render it correctly:
+                                    flask_moment_render_all();
+                                }
+                            );
+                    }, 1000);
+                },
+                function(event) {
+                    // mouse out event handler
+                    // if timer hasn't fired yet, clear it
+                    var elem = $(event.currentTarget);
+                    if (timer) {
+                        clearTimeout(timer);
+                        timer = null;
+                    }
+                    // if AJAX request in progress, cancel it
+                    else if (xhr) {
+                        xhr.abort();
+                        xhr = null;
+                    }
+                    // if the popover was created, destroy it
+                    else {
+                        elem.popover('destroy');
+                    }
+                }
+            );
+        });
+		{# Enable dynamic update of user message count: #}
+        function set_message_count(n) {
+            $('#message_count').text(n);
+            $('#message_count').css('visibility', n ? 'visible' : 'hidden');
+        }
+        {% if current_user.is_authenticated %}
+			$(function() {
+				var since = 0;
+				// Run this every 10,000 ms
+				setInterval(function() {
+					$.ajax('{{ url_for('main.notifications') }}?since=' + since).done(
+						function(notifications) {
+							for (var i = 0; i < notifications.length; i++) {
+								if (notifications[i].name == 'unread_message_count')
+									set_message_count(notifications[i].data);
+								since = notifications[i].timestamp;
+							}
+						}
+					);
+				}, 10000);
+			});
+        {% endif %}
     </script>
 {% endblock %}
 

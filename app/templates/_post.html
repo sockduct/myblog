@@ -15,9 +15,12 @@
             {# Encapsulate dynamic username wrapped in HTML to make it a hyperlink into user_link
                variable using set block from Jinja #}
             {% set user_link %}
-                <a href="{{ url_for('main.user', username=post.author.username) }}">
-                    {{ post.author.username }}
-                </a>
+                {# Wrap username link in span class as target for popover #}
+                <span class="user_popup">
+                    <a href="{{ url_for('main.user', username=post.author.username) }}">
+                        {{ post.author.username }}
+                    </a>
+                </span>
             {% endset %}
             {# Can now reference above with user_link: #}
             {{ _('%(username)s said %(when)s', username=user_link, when=moment(post.timestamp).fromNow()) }}
