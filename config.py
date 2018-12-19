@@ -39,6 +39,9 @@ class Config(object):
     MS_TRANSLATOR_KEY = os.environ.get('MS_TRANSLATOR_KEY')
     ELASTICSEARCH_URL = os.environ.get('ELASTICSEARCH_URL')
     #
+    # Where to find Redis Server
+    REDIS_URL = os.environ.get('REDIS_URL') or 'redis://'
+    #
     # How many posts to display per page:
     POSTS_PER_PAGE = 5
 

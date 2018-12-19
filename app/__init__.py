@@ -11,6 +11,8 @@ from flask_sqlalchemy import SQLAlchemy
 import logging
 from logging.handlers import SMTPHandler, RotatingFileHandler
 import os
+from redis import Redis
+import rq
 
 # Create an instance of Flask named app
 # Pass Flask __name__ which is the name of this module
@@ -63,6 +65,8 @@ def create_app(config_class=Config):
     # If environment variable isn't set then search will be disabled
     app.elasticsearch = (Elasticsearch([app.config['ELASTICSEARCH_URL']])
                          if app.config['ELASTICSEARCH_URL'] else None)
+    app.redis = Redis.from_url(app.config['REDIS_URL'])
+    app.task_queue = rq.Queue('myblog-tasks', connection=app.redis)
 
     # Put import here to avoid circular dependencies
     # Also need to delay import until this point so we have app instance
