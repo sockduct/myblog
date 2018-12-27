@@ -3,14 +3,17 @@
 
 from app import db, login
 from app.search import add_to_index, remove_from_index, query_index
-from datetime import datetime
-from flask import current_app
+import base64
+from datetime import datetime, timedelta
+from flask import current_app, url_for
 from flask_login import UserMixin
 from hashlib import md5
-import redis
-import rq
 import json
 import jwt
+import os
+import redis
+import rq
+from secrets import token_urlsafe
 from time import time
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -63,6 +66,30 @@ db.event.listen(db.session, 'before_commit', SearchableMixin.before_commit)
 db.event.listen(db.session, 'after_commit', SearchableMixin.after_commit)
 
 
+class PaginatedAPIMixin(object):
+    @staticmethod
+    # endpoint and **kwargs are for url_for to generate next and prev info
+    def to_collection_dict(query, page, per_page, endpoint, **kwargs):
+        resources = query.paginate(page, per_page, False)
+        data = {
+            'items': [item.to_dict() for item in resources.items],
+            '_meta': {
+                'page': page,
+                'per_page': per_page,
+                'total_pages': resources.pages,
+                'total_items': resources.total
+            },
+            '_links': {
+                'self': url_for(endpoint, page=page, per_page=per_page, **kwargs),
+                'next': url_for(endpoint, page=page + 1, per_page=per_page,
+                                **kwargs) if resources.has_next else None,
+                'prev': url_for(endpoint, page=page - 1, per_page=per_page,
+                                **kwargs) if resources.has_prev else None
+            }
+        }
+        return data
+
+
 # Auxiliary table to facilitate many-to-many relationship between follower
 # users and followed users
 # Not making this a model (class) because we won't use directly
@@ -76,7 +103,7 @@ followers = db.Table(
 
 
 # SQLAlchemy base class for models - db.Model
-class User(UserMixin, db.Model):
+class User(UserMixin, PaginatedAPIMixin, db.Model):
     # Primary Key:
     id = db.Column(db.Integer, primary_key=True)
     # Index to allow fast searching and sorting within column:
@@ -94,6 +121,13 @@ class User(UserMixin, db.Model):
     # Additional user information:
     about_me = db.Column(db.String(140))
     last_seen = db.Column(db.DateTime, default=datetime.utcnow)
+    # Original implementation which we're augmenting
+    # token = db.Column(db.String(32), index=True, unique=True)
+    # Increase string length to 50 to support secrets.token_urlsafe()
+    # Column is indexed to allow fast lookup of user from token
+    # Column unique - only one active token per user
+    token = db.Column(db.String(50), index=True, unique=True)
+    token_expiration = db.Column(db.DateTime)
     # Dynamic list of users followed by this user
     followed = db.relationship(
         # User here is the right-side or followed users by class User
@@ -203,6 +237,65 @@ class User(UserMixin, db.Model):
         # As design decision won't allow multiple tasks of same name running
         # at same time for same user so can use .first()
         return Task.query.filter_by(name=name, user=self, complete=False).first()
+
+    # Helper method to support returning JSON data
+    # Default to not revealing email address unless the requesting user is the
+    # actual user (i.e., don't give out other people's email address)
+    def to_dict(self, include_email=False):
+        data = {
+            # Retrieve info from object
+            'id': self.id,
+            'username': self.username,
+            'last_seen': self.last_seen.isoformat() + 'Z',
+            'about_me': self.about_me,
+            # Where necessary do a database query
+            'post_count': self.posts.count(),
+            'follower_count': self.followers.count(),
+            'followed_count': self.followed.count(),
+            '_links': {
+                'self': url_for('api.get_user', id=self.id),
+                'followers': url_for('api.get_followers', id=self.id),
+                'followed': url_for('api.get_followed', id=self.id),
+                'avatar': self.avatar(128)
+            }
+        }
+        if include_email:
+            data['email'] = self.email
+        return data
+
+    # Accept JSON input and convert to object
+    def from_dict(self, data, new_user=False):
+        # These three are the only fields allowed to be set
+        for field in ['username', 'email', 'about_me']:
+            if field in data:
+                setattr(self, field, data[field])
+        # Unless its a new user, then set password too
+        if new_user and 'password' in data:
+            self.set_password(data['password'])
+
+    def get_token(self, expires_in=3600):
+        now = datetime.utcnow()
+        if self.token and self.token_expiration > now + timedelta(seconds=60):
+            return self.token
+        # Original implementation
+        # self.token = base64.b64encode(os.urandom(24)).decode('utf-8')
+        # Replace with secrets.token_urlsafe which is designed for creating
+        # cryptographically secure tokens
+        self.token = token_urlsafe()
+        self.token_expiration = now + timedelta(seconds=expires_in)
+        db.session.add(self)
+        return self.token
+
+    def revoke_token(self):
+        self.token_expiration = datetime.utcnow() - timedelta(seconds=1)
+
+    @staticmethod
+    def check_token(token):
+        user = User.query.filter_by(token=token).first()
+        # If no user found from token or token expired return None (invalid token)
+        if user is None or user.token_expiration < datetime.utcnow():
+            return None
+        return user
 
 
 # flask_login keeps track of users in flask's user session via their user id
